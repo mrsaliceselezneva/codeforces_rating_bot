@@ -9,6 +9,7 @@ from app.services.codeforces import get_user_info
 from app.utils.rank_translation import translate_rank
 from app.utils.rank_utils import compare_ranks
 from app.utils.send_large_message import send_large_message
+import asyncio
 
 load_dotenv()
 
@@ -126,9 +127,13 @@ async def update_ratings(message: Message):
         """)
         users = cursor.fetchall()
 
-    for telegram_id, first_name, last_name, handle, old_rank, old_rating, top_rank in users:
+    total = len(users)
+    last_notify = datetime.utcnow()
+
+    for i, (telegram_id, first_name, last_name, handle, old_rank, old_rating, top_rank) in enumerate(users, start=1):
         try:
             info = await get_user_info(handle)
+            await asyncio.sleep(5)
             new_rank = info.get("rank", "unrated")
             new_rating = info.get("rating", 0)
 
@@ -169,6 +174,12 @@ async def update_ratings(message: Message):
             emoji = "❌"
             link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
             errors.append(f"{emoji} {link} — ошибка: {e}")
+
+        # Каждую минуту сообщаем о прогрессе
+        if (datetime.utcnow() - last_notify).total_seconds() >= 60:
+            remaining = total - i
+            await message.answer(f"⏳ Осталось обновить {remaining} пользователей из {total}")
+            last_notify = datetime.utcnow()
 
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
     await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
