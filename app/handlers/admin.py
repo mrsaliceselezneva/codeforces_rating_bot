@@ -96,9 +96,10 @@ async def update_ratings(message: Message):
     interval = int(os.getenv("RATING_UPDATE_INTERVAL_MINUTES", "60"))
     now = datetime.utcnow()
 
+    # Проверка времени последнего обновления
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT value FROM metadata WHERE key = 'last_rating_update'")
+        cursor.execute("SELECT MAX(last_updated) FROM users")
         row = cursor.fetchone()
         if row and row[0]:
             last_update_time = datetime.fromisoformat(row[0])
@@ -168,14 +169,6 @@ async def update_ratings(message: Message):
             emoji = "❌"
             link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
             errors.append(f"{emoji} {link} — ошибка: {e}")
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO metadata (key, value) VALUES ('last_rating_update', ?)
-            ON CONFLICT(key) DO UPDATE SET value=excluded.value
-        """, (now.isoformat(),))
-        conn.commit()
 
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
     await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")

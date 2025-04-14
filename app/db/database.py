@@ -1,8 +1,7 @@
 import sqlite3
 from contextlib import contextmanager
-import os
 
-DB_PATH = os.getenv("DB_PATH", "/app/data.db")
+DB_PATH = "/app/data.db"
 
 
 @contextmanager
