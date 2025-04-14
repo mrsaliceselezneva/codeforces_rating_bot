@@ -192,7 +192,6 @@ async def list_users(message: Message):
         cursor.execute("""
             SELECT first_name, last_name, handle
             FROM users
-            WHERE telegram_id IS NOT NULL
             ORDER BY last_name, first_name
         """)
         rows = cursor.fetchall()
