@@ -7,6 +7,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    # Таблица пользователей
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             handle TEXT PRIMARY KEY,
@@ -18,6 +19,17 @@ def init_db():
             top_rank TEXT DEFAULT '',
             rating INTEGER DEFAULT 0,
             last_updated TEXT DEFAULT ''
+        )
+    """)
+
+    # Таблица истории рейтингов и званий
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            handle TEXT NOT NULL,
+            rank TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            timestamp TEXT NOT NULL
         )
     """)
 

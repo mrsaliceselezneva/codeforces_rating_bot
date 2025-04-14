@@ -3,6 +3,10 @@ import os
 from dotenv import load_dotenv
 import httpx
 from datetime import datetime, timedelta, timezone
+from app.db.database import get_db
+from aiogram import Bot
+from app.utils.send_large_message import send_large_message
+import asyncio
 
 load_dotenv()
 
@@ -10,6 +14,7 @@ API_URL = os.getenv("API_URL_CODEFORCES")
 API_URL_CONTESTS = os.getenv("API_URL_CODEFORCES_CONTESTS")
 
 # Ограничение 1 запрос в 10 секунд
+ADMINS = [int(x) for x in os.getenv("ADMINS", "").split(",") if x.strip()]
 last_call = 0
 
 
@@ -71,3 +76,38 @@ def format_time(dt: datetime, fmt="%d.%m %H:%M") -> str:
     local_time = dt + timedelta(hours=offset)
     sign = "+" if offset >= 0 else "-"
     return f"{local_time.strftime(fmt)} UTC{sign}{abs(offset)}"
+
+
+async def collect_daily_history(bot: Bot):
+    errors = []
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT handle FROM users WHERE handle IS NOT NULL")
+        users = cursor.fetchall()
+
+    for (handle,) in users:
+        try:
+            info = await get_user_info(handle)
+            rank = info.get("rank", "unrated")
+            rating = info.get("rating", 0)
+            timestamp = datetime.utcnow().isoformat()
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO history (handle, rank, rating, timestamp)
+                    VALUES (?, ?, ?, ?)
+                """, (handle, rank, rating, timestamp))
+                conn.commit()
+        except Exception as e:
+            errors.append(f"{handle}: {e}")
+        await asyncio.sleep(5)  # не чаще 1 запроса в 10 секунд, подстраховка
+
+    if errors:
+        text = "❌ Ошибки при обновлении истории:\n" + "\n".join(errors)
+    else:
+        text = "✅ История рейтингов успешно обновлена."
+
+    for admin_id in ADMINS:
+        await send_large_message(bot, int(admin_id), text, parse_mode="HTML")

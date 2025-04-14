@@ -9,6 +9,7 @@ from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
 from app.db.models import init_db
+from app.services.codeforces import collect_daily_history
 from handlers import admin, user, commands
 from services.notifier import scheduler, send_weekly_contests, send_today_contests
 
@@ -37,6 +38,7 @@ async def main():
 
     scheduler.add_job(send_weekly_contests, "cron", day_of_week="mon", hour=12, minute=0, args=[bot])
     scheduler.add_job(send_today_contests, "cron", hour=10, minute=0, args=[bot])
+    scheduler.add_job(collect_daily_history, "cron", hour=1, minute=0, args=[bot])
     scheduler.start()
 
     logging.info("✅ Бот запущен.")
