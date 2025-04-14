@@ -8,9 +8,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
-from app.db.models import init_db
-from app.handlers import admin, user, commands
-from app.services.notifier import scheduler, send_weekly_contests, send_today_contests
+from db.models import init_db
+from handlers import admin, user, commands
+from services.notifier import scheduler, send_weekly_contests, send_today_contests
 
 
 load_dotenv()
