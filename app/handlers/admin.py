@@ -189,21 +189,23 @@ async def list_users(message: Message):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT handle, last_name, first_name FROM users WHERE telegram_id IS NOT NULL")
-        users = cursor.fetchall()
+        cursor.execute("""
+            SELECT first_name, last_name, handle
+            FROM users
+            ORDER BY last_name, first_name
+        """)
+        rows = cursor.fetchall()
 
-    if not users:
-        await message.answer("Список пользователей пуст.")
+    if not rows:
+        await message.answer("❌ Зарегистрированных пользователей нет.")
         return
 
-    users.sort(key=lambda x: (x[1], x[2]))  # сортировка по фамилии, имени
-    lines = []
-    for handle, last_name, first_name in users:
-        link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
-        lines.append(link)
+    lines = ["👥 Зарегистрированные пользователи:"]
+    for first_name, last_name, handle in rows:
+        lines.append(f"• {last_name} {first_name} — <code>{handle}</code>")
 
-    full_text = "📋 <b>Пользователи:</b>\n" + "\n".join(lines)
-    await send_large_message(message.bot, message.chat.id, full_text, parse_mode="HTML")
+    text = "\n".join(lines)
+    await send_large_message(message.bot, message.chat.id, text, parse_mode="HTML")
 
 
 @router.message(Command("update_handle"))

@@ -3,7 +3,7 @@ import os
 
 
 def init_db():
-    DB_PATH = os.path.join(os.path.dirname(__file__), "../../data.db")
+    DB_PATH = os.getenv("DB_PATH", "/app/data.db")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -15,9 +15,9 @@ def init_db():
             telegram_id INTEGER,
             is_admin INTEGER NOT NULL DEFAULT 0,
             rank TEXT DEFAULT '',
+            top_rank TEXT DEFAULT ''
             rating INTEGER DEFAULT 0,
             last_updated TEXT DEFAULT '',
-            top_rank TEXT DEFAULT ''
         )
     """)
 

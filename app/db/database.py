@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "../../data.db")
+DB_PATH = os.getenv("DB_PATH", "/app/data.db")
 
 
 @contextmanager
