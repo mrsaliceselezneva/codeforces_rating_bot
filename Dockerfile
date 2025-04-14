@@ -15,4 +15,4 @@ COPY . .
 
 WORKDIR /app
 ENV PYTHONPATH=/app
-CMD ["python", "app.main"]
+CMD ["python", "main.py"]
