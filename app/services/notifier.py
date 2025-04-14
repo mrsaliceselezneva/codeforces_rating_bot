@@ -5,8 +5,8 @@ import os
 from aiogram import Bot
 import asyncio
 
-from db.database import get_db
-from services.codeforces import get_upcoming_div_contests, format_time
+from app.db.database import get_db
+from app.services.codeforces import get_upcoming_div_contests, format_time
 
 local_timezone = pytz_timezone("Asia/Dubai")
 scheduler = AsyncIOScheduler(timezone=local_timezone)

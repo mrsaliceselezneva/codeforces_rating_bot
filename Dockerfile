@@ -13,6 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+ENV PYTHONPATH=/
 WORKDIR /app
-ENV PYTHONPATH=/app
 CMD ["python", "main.py"]

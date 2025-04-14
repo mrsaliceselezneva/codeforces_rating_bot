@@ -1,7 +1,7 @@
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
-from db.database import get_db
+from app.db.database import get_db
 from dotenv import load_dotenv
 import os
 
