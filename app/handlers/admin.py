@@ -4,8 +4,8 @@ from aiogram.types import Message, CallbackQuery
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
-from db.database import get_db
-from services.codeforces import get_user_info
+from app.db.database import get_db
+from app.services.codeforces import get_user_info
 
 
 load_dotenv()
