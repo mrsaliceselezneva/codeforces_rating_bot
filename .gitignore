@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# SQLite database
+*.db
+
+# dotenv environment variables
+.env
+
+# VS Code settings (если используешь VSCode)
+.vscode/
+
+# PyCharm
+.idea/
+
+# Docker
+*.log
+*.pid
+*.sock
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# coverage/test
+htmlcov/
+coverage.xml
+.tox/
+pytest_cache/
+.cache/
+
+# mypy
+.mypy_cache/
+
+# celery
+celerybeat-schedule
