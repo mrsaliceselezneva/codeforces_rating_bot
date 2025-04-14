@@ -6,6 +6,8 @@ import os
 from dotenv import load_dotenv
 from app.db.database import get_db
 from app.services.codeforces import get_user_info
+from app.utils.rank_translation import translate_rank
+from app.utils.rank_utils import compare_ranks
 
 
 load_dotenv()
@@ -96,7 +98,7 @@ async def update_ratings(message: Message):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT MAX(last_updated) FROM users WHERE handle IS NOT NULL")
+        cursor.execute("SELECT value FROM metadata WHERE key = 'last_rating_update'")
         row = cursor.fetchone()
         if row and row[0]:
             last_update_time = datetime.fromisoformat(row[0])
@@ -111,62 +113,72 @@ async def update_ratings(message: Message):
 
     await message.answer("🔄 Обновляю рейтинги...")
 
-    changed_handles = set()
-    failed_handles = set()
-    updated_data = []
+    updates = []
+    errors = []
 
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT telegram_id, first_name, last_name, handle, rank, rating
+            SELECT telegram_id, first_name, last_name, handle, rank, rating, top_rank
             FROM users
             WHERE handle IS NOT NULL
         """)
         users = cursor.fetchall()
 
-    for telegram_id, first_name, last_name, handle, old_rank, old_rating in users:
+    for telegram_id, first_name, last_name, handle, old_rank, old_rating, top_rank in users:
         try:
             info = await get_user_info(handle)
             new_rank = info.get("rank", "unrated")
             new_rating = info.get("rating", 0)
 
-            if new_rating > (old_rating or 0) and new_rank != (old_rank or ""):
-                changed_handles.add(handle)
+            is_new_rank = new_rank != old_rank
+            is_rating_increased = new_rating > (old_rating or 0)
+
+            rank_translation = translate_rank(new_rank)
+            link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
+
+            emoji = "✅"
+            comment = f"был {old_rating}, стал {new_rating}"
+
+            if top_rank in (None, "", "unrated") and compare_ranks(new_rank, top_rank):
+                emoji = "🏆"
+                comment = f"повысилось звание до {rank_translation} (впервые)"
+                top_rank_to_set = new_rank
+            elif is_new_rank:
+                emoji = "✅"
+                comment = f"изменилось звание на {rank_translation}"
+                top_rank_to_set = top_rank
+            elif is_rating_increased:
+                top_rank_to_set = top_rank
+            else:
+                top_rank_to_set = top_rank
 
             with get_db() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE users
-                    SET rank = ?, rating = ?, last_updated = ?
+                    SET rank = ?, rating = ?, last_updated = ?, top_rank = ?
                     WHERE handle = ?
-                """, (new_rank, new_rating, now.isoformat(), handle))
+                """, (new_rank, new_rating, now.isoformat(), top_rank_to_set, handle))
                 conn.commit()
 
-            updated_data.append((handle, first_name, last_name, new_rank, new_rating))
+            updates.append(f"{emoji} {link} — {comment}")
 
-        except Exception:
-            failed_handles.add(handle)
+        except Exception as e:
+            emoji = "❌"
+            link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
+            errors.append(f"{emoji} {link} — ошибка: {e}")
 
-    if updated_data:
-        lines = ["📊 Актуальные рейтинги:\n"]
-        updated_data.sort(key=lambda x: x[4], reverse=True)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO metadata (key, value) VALUES ('last_rating_update', ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+        """, (now.isoformat(),))
+        conn.commit()
 
-        for handle, fname, lname, rank, rating in updated_data:
-            if handle in failed_handles:
-                symbol = "❌"
-                handle_str = handle
-            elif handle in changed_handles:
-                symbol = "⭐"
-                handle_str = f"<a href='https://codeforces.com/profile/{handle}'>{handle}</a>"
-            else:
-                symbol = "✅"
-                handle_str = handle
-
-            lines.append(f"{symbol} {handle_str} — {lname} {fname} — {rank} ({rating})")
-
-        await message.answer("\n".join(lines), parse_mode="HTML")
-
-    await message.answer("✅ Обновление завершено.")
+    result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
+    await message.answer(result, parse_mode="HTML")
 
 
 @router.message(Command("list_users"))

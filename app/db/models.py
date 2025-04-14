@@ -16,7 +16,8 @@ def init_db():
             is_admin INTEGER NOT NULL DEFAULT 0,
             rank TEXT DEFAULT '',
             rating INTEGER DEFAULT 0,
-            last_updated TEXT DEFAULT ''
+            last_updated TEXT DEFAULT '',
+            top_rank TEXT DEFAULT ''
         )
     """)
 
