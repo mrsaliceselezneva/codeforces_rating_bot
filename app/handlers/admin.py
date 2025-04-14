@@ -94,10 +94,9 @@ async def update_ratings(message: Message):
     interval = int(os.getenv("RATING_UPDATE_INTERVAL_MINUTES", "60"))
     now = datetime.utcnow()
 
-    # Проверка времени последнего обновления
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT last_updated FROM ratings WHERE handle = '__last_update__'")
+        cursor.execute("SELECT MAX(last_updated) FROM users WHERE handle IS NOT NULL")
         row = cursor.fetchone()
         if row and row[0]:
             last_update_time = datetime.fromisoformat(row[0])
@@ -113,72 +112,59 @@ async def update_ratings(message: Message):
     await message.answer("🔄 Обновляю рейтинги...")
 
     changed_handles = set()
+    failed_handles = set()
     updated_data = []
 
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT u.telegram_id, u.first_name, u.last_name, h.handle
-            FROM users u
-            JOIN handles h ON u.telegram_id = h.user_id
+            SELECT telegram_id, first_name, last_name, handle, rank, rating
+            FROM users
+            WHERE handle IS NOT NULL
         """)
-        rows = cursor.fetchall()
+        users = cursor.fetchall()
 
-    for telegram_id, first_name, last_name, handle in rows:
+    for telegram_id, first_name, last_name, handle, old_rank, old_rating in users:
         try:
             info = await get_user_info(handle)
             new_rank = info.get("rank", "unrated")
             new_rating = info.get("rating", 0)
 
+            if new_rating > (old_rating or 0) and new_rank != (old_rank or ""):
+                changed_handles.add(handle)
+
             with get_db() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT rank, rating FROM ratings WHERE handle = ?", (handle,))
-                row = cursor.fetchone()
-
-                if not row:
-                    cursor.execute(
-                        "INSERT INTO ratings (handle, rank, rating) VALUES (?, ?, ?)",
-                        (handle, new_rank, new_rating)
-                    )
-                else:
-                    old_rank, old_rating = row
-                    if old_rank != new_rank and new_rating > old_rating:
-                        changed_handles.add(handle)
-
-                    cursor.execute(
-                        "UPDATE ratings SET rank = ?, rating = ?, last_updated = CURRENT_TIMESTAMP WHERE handle = ?",
-                        (new_rank, new_rating, handle)
-                    )
-
+                cursor.execute("""
+                    UPDATE users
+                    SET rank = ?, rating = ?, last_updated = ?
+                    WHERE handle = ?
+                """, (new_rank, new_rating, now.isoformat(), handle))
                 conn.commit()
 
             updated_data.append((handle, first_name, last_name, new_rank, new_rating))
 
-        except Exception as e:
-            await message.answer(f"❌ Ошибка с {handle}: {e}")
+        except Exception:
+            failed_handles.add(handle)
 
     if updated_data:
         lines = ["📊 Актуальные рейтинги:\n"]
         updated_data.sort(key=lambda x: x[4], reverse=True)
 
         for handle, fname, lname, rank, rating in updated_data:
-            if handle in changed_handles:
+            if handle in failed_handles:
+                symbol = "❌"
+                handle_str = handle
+            elif handle in changed_handles:
+                symbol = "⭐"
                 handle_str = f"<a href='https://codeforces.com/profile/{handle}'>{handle}</a>"
             else:
+                symbol = "✅"
                 handle_str = handle
-            lines.append(f"🐊 {handle_str} — {lname} {fname} — {rank} ({rating})")
+
+            lines.append(f"{symbol} {handle_str} — {lname} {fname} — {rank} ({rating})")
 
         await message.answer("\n".join(lines), parse_mode="HTML")
-
-    # Обновление времени последнего запуска
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO ratings (handle, rank, rating, last_updated)
-            VALUES ('__last_update__', '', 0, ?)
-            ON CONFLICT(handle) DO UPDATE SET last_updated=excluded.last_updated
-        """, (now.isoformat(),))
-        conn.commit()
 
     await message.answer("✅ Обновление завершено.")
 

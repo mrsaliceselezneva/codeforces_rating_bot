@@ -35,7 +35,7 @@ async def main():
     dp.include_router(user.router)
     dp.include_router(admin.router)
 
-    scheduler.add_job(send_weekly_contests, "cron", day_of_week="mon", hour=9, minute=0, args=[bot])
+    scheduler.add_job(send_weekly_contests, "cron", day_of_week="mon", hour=12, minute=0, args=[bot])
     scheduler.add_job(send_today_contests, "cron", hour=10, minute=0, args=[bot])
     scheduler.start()
 
