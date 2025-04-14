@@ -8,7 +8,7 @@ from app.db.database import get_db
 from app.services.codeforces import get_user_info
 from app.utils.rank_translation import translate_rank
 from app.utils.rank_utils import compare_ranks
-
+from app.utils.send_large_message import send_large_message
 
 load_dotenv()
 
@@ -178,7 +178,7 @@ async def update_ratings(message: Message):
         conn.commit()
 
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
-    await message.answer(result, parse_mode="HTML")
+    await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
 
 
 @router.message(Command("list_users"))
@@ -189,22 +189,21 @@ async def list_users(message: Message):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT first_name, last_name, handle
-            FROM users
-            ORDER BY last_name, first_name
-        """)
-        rows = cursor.fetchall()
+        cursor.execute("SELECT handle, last_name, first_name FROM users WHERE telegram_id IS NOT NULL")
+        users = cursor.fetchall()
 
-    if not rows:
-        await message.answer("❌ Зарегистрированных пользователей нет.")
+    if not users:
+        await message.answer("Список пользователей пуст.")
         return
 
-    lines = ["👥 Зарегистрированные пользователи:"]
-    for first_name, last_name, handle in rows:
-        lines.append(f"• {last_name} {first_name} — <code>{handle}</code>")
+    users.sort(key=lambda x: (x[1], x[2]))  # сортировка по фамилии, имени
+    lines = []
+    for handle, last_name, first_name in users:
+        link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
+        lines.append(link)
 
-    await message.answer("\n".join(lines), parse_mode="HTML")
+    full_text = "📋 <b>Пользователи:</b>\n" + "\n".join(lines)
+    await send_large_message(message.bot, message.chat.id, full_text, parse_mode="HTML")
 
 
 @router.message(Command("update_handle"))
