@@ -86,7 +86,7 @@ async def remove_user(message: Message):
     await message.answer(f"🗑️ Пользователь <code>{handle}</code> удалён.", parse_mode="HTML")
 
 
-@router.message(Command("update_ratings"))
+@router.message(Command("update_ratings_clear"))
 async def update_ratings(message: Message):
     if message.from_user.id not in ADMINS:
         await message.answer("❌ У вас нет прав для этой команды.")
@@ -184,6 +184,103 @@ async def update_ratings(message: Message):
         cursor = conn.cursor()
         cursor.execute("DELETE FROM history")
         conn.commit()
+
+    result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
+    await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
+
+
+@router.message(Command("update_ratings"))
+async def update_ratings(message: Message):
+    if message.from_user.id not in ADMINS:
+        await message.answer("❌ У вас нет прав для этой команды.")
+        return
+
+    interval = int(os.getenv("RATING_UPDATE_INTERVAL_MINUTES", "60"))
+    now = datetime.utcnow()
+
+    # Проверка времени последнего обновления
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT MAX(last_updated) FROM users")
+        row = cursor.fetchone()
+        if row and row[0]:
+            last_update_time = datetime.fromisoformat(row[0])
+            if now - last_update_time < timedelta(minutes=interval):
+                remaining = timedelta(minutes=interval) - (now - last_update_time)
+                mins = int(remaining.total_seconds() // 60)
+                await message.answer(
+                    f"⚠️ Обновление рейтингов доступно раз в {interval} минут.\n"
+                    f"Подождите ещё {mins} мин."
+                )
+                return
+
+    await message.answer("🔄 Обновляю рейтинги...")
+
+    updates = []
+    errors = []
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT telegram_id, first_name, last_name, handle, top_rank
+            FROM users
+            WHERE handle IS NOT NULL
+        """)
+        users = cursor.fetchall()
+
+    total = len(users)
+    last_notify = datetime.utcnow()
+
+    for i, (telegram_id, first_name, last_name, handle, top_rank) in enumerate(users, start=1):
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT rank, rating FROM history
+                    WHERE handle = ?
+                    ORDER BY rating DESC
+                    LIMIT 1
+                """, (handle,))
+                row = cursor.fetchone()
+
+            link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
+
+            if not row:
+                updates.append(f"❌ {link} — нет данных в истории")
+                continue
+
+            new_rank, new_rating = row
+            rank_translation = translate_rank(new_rank)
+
+            if compare_ranks(new_rank, top_rank or "unrated"):
+                emoji = "🏆"
+                comment = f"повысилось звание до {rank_translation} (впервые)"
+                top_rank_to_set = new_rank
+            else:
+                emoji = "✅"
+                comment = f"обновлён рейтинг до {new_rating}"
+                top_rank_to_set = top_rank
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE users
+                    SET rank = ?, rating = ?, last_updated = ?, top_rank = ?
+                    WHERE handle = ?
+                """, (new_rank, new_rating, now.isoformat(), top_rank_to_set, handle))
+                conn.commit()
+
+            updates.append(f"{emoji} {link} — {comment}")
+
+        except Exception as e:
+            link = f"<a href='https://codeforces.com/profile/{handle}'>{last_name} {first_name}</a>"
+            errors.append(f"❌ {link} — ошибка: {e}")
+
+        # Каждую минуту сообщаем о прогрессе
+        if (datetime.utcnow() - last_notify).total_seconds() >= 60:
+            remaining = total - i
+            await message.answer(f"⏳ Осталось обновить {remaining} пользователей из {total}")
+            last_notify = datetime.utcnow()
 
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
     await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
