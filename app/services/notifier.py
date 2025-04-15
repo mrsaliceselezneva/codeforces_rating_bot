@@ -17,7 +17,7 @@ async def send_weekly_contests(bot: Bot):
     if not upcoming:
         return
 
-    lines = ["📅 Предстоящие раунды на этой неделе:"]
+    lines = ["📅 Ближайшие раунды:"]
     for c in upcoming:
         start = format_time(c["start"])
         lines.append(f"\n🔸 <b>{c['name']}</b>\n🕒 {start}\n🔗 <a href='{c['url']}'>Перейти</a>")
