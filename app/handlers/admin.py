@@ -255,20 +255,9 @@ async def update_ratings(message: Message):
             if compare_ranks(new_rank, top_rank or "unrated"):
                 emoji = "🏆"
                 comment = f"повысилось звание до {rank_translation} (впервые)"
-                top_rank_to_set = new_rank
             else:
                 emoji = "✅"
                 comment = f"обновлён рейтинг до {new_rating}"
-                top_rank_to_set = top_rank
-
-            with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE users
-                    SET rank = ?, rating = ?, last_updated = ?, top_rank = ?
-                    WHERE handle = ?
-                """, (new_rank, new_rating, now.isoformat(), top_rank_to_set, handle))
-                conn.commit()
 
             updates.append(f"{emoji} {link} — {comment}")
 
