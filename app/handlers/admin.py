@@ -119,7 +119,7 @@ async def update_ratings(message: Message):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT telegram_id, first_name, last_name, handle, top_rank
+            SELECT telegram_id, first_name, last_name, handle, rating, top_rank
             FROM users
             WHERE handle IS NOT NULL
         """)
@@ -128,7 +128,7 @@ async def update_ratings(message: Message):
     total = len(users)
     last_notify = datetime.utcnow()
 
-    for i, (telegram_id, first_name, last_name, handle, top_rank) in enumerate(users, start=1):
+    for i, (telegram_id, first_name, last_name, handle, rating, top_rank) in enumerate(users, start=1):
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -155,7 +155,7 @@ async def update_ratings(message: Message):
                 top_rank_to_set = new_rank
             else:
                 emoji = "✅"
-                comment = f"обновлён рейтинг до {new_rating}"
+                comment = f"был {rating}, стал {new_rating}"
                 top_rank_to_set = top_rank
 
             with get_db() as conn:
@@ -222,7 +222,7 @@ async def update_ratings(message: Message):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT telegram_id, first_name, last_name, handle, top_rank
+            SELECT telegram_id, first_name, last_name, handle, rating, top_rank
             FROM users
             WHERE handle IS NOT NULL
         """)
@@ -231,7 +231,7 @@ async def update_ratings(message: Message):
     total = len(users)
     last_notify = datetime.utcnow()
 
-    for i, (telegram_id, first_name, last_name, handle, top_rank) in enumerate(users, start=1):
+    for i, (telegram_id, first_name, last_name, handle, rating, top_rank) in enumerate(users, start=1):
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -257,7 +257,7 @@ async def update_ratings(message: Message):
                 comment = f"повысилось звание до {rank_translation} (впервые)"
             else:
                 emoji = "✅"
-                comment = f"обновлён рейтинг до {new_rating}"
+                comment = f"был {rating}, стал {new_rating}"
 
             updates.append(f"{emoji} {link} — {comment}")
 
