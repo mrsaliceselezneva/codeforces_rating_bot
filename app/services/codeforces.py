@@ -28,9 +28,15 @@ async def get_user_info(handle: str):
 
     async with httpx.AsyncClient() as client:
         response = await client.get(API_URL, params={"handles": handle})
-        data = response.json()
-        if data["status"] != "OK":
+        try:
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            raise Exception(f"Ошибка при получении данных от Codeforces: {e}")
+
+        if data.get("status") != "OK":
             raise Exception(f"Ошибка API для {handle}: {data.get('comment')}")
+
         return data["result"][0]
 
 
