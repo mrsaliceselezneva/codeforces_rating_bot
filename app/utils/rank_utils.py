@@ -25,3 +25,10 @@ def compare_ranks(rank1: str, rank2: str) -> int:
     val1 = RANK_ORDER.get(rank1.lower(), 0)
     val2 = RANK_ORDER.get(rank2.lower(), 0)
     return val1 > val2 and val1 >= 3
+
+
+def extract_name(entry: str) -> str:
+    try:
+        return entry.split('>')[1].split('</a>')[0]
+    except IndexError:
+        return entry

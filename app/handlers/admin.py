@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from app.db.database import get_db
 from app.utils.rank_translation import translate_rank
-from app.utils.rank_utils import compare_ranks
+from app.utils.rank_utils import compare_ranks, extract_name
 from app.utils.send_large_message import send_large_message
 
 load_dotenv()
@@ -185,6 +185,9 @@ async def update_ratings(message: Message):
         cursor.execute("DELETE FROM history")
         conn.commit()
 
+    updates.sort(key=extract_name)
+    errors.sort(key=extract_name)
+
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
     await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
 
@@ -270,6 +273,9 @@ async def update_ratings(message: Message):
             remaining = total - i
             await message.answer(f"⏳ Осталось обновить {remaining} пользователей из {total}")
             last_notify = datetime.utcnow()
+
+    updates.sort(key=extract_name)
+    errors.sort(key=extract_name)
 
     result = "\n".join(updates + errors) or "Никаких изменений не обнаружено."
     await send_large_message(message.bot, message.chat.id, result, parse_mode="HTML")
