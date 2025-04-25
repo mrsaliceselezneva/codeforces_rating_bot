@@ -37,7 +37,11 @@ async def get_user_info(handle: str):
         if data.get("status") != "OK":
             raise Exception(f"Ошибка API для {handle}: {data.get('comment')}")
 
-        return data["result"][0]
+        result = data.get("result")
+        if not result:
+            raise Exception(f"Пользователь {handle} не найден.")
+
+        return result[0]
 
 
 def is_target_division(name: str) -> bool:
